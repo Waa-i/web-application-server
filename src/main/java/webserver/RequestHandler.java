@@ -1,19 +1,19 @@
 package webserver;
 
-import java.io.*;
-import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
 import util.IOUtils;
+
+import java.io.*;
+import java.net.Socket;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -40,6 +40,7 @@ public class RequestHandler extends Thread {
             String body = "";
             if(method.equalsIgnoreCase("post")) {
                 body = parseBody(br, headers);
+                log.debug("body:{}", body);
             }
             handleRequestUrl(method, url, body, dos);
 
@@ -61,8 +62,7 @@ public class RequestHandler extends Thread {
         }
         return headers;
     }
-
-    private void handleRequestUrl(String method, String url, String body, DataOutputStream out) throws IOException {
+    private List<String> parsePath(String url) {
         String path = url;
         String query = "";
         int querySeparatorIdx = url.indexOf("?");
@@ -70,6 +70,12 @@ public class RequestHandler extends Thread {
             path = url.substring(0, querySeparatorIdx);
             query = url.substring(querySeparatorIdx + 1);
         }
+        return Arrays.asList(path, query);
+    }
+    private void handleRequestUrl(String method, String url, String body, DataOutputStream out) throws IOException {
+        List<String> queryPaths = parsePath(url);
+        String path = queryPaths.get(0);
+        String query = queryPaths.get(1);
         if(url.equals("/")) {
             handleRootPage(url, out);
             return;
@@ -82,15 +88,12 @@ public class RequestHandler extends Thread {
             handleRegisterPage(url, out);
             return;
         }
-        if(path.equalsIgnoreCase("/user/create")) {
-            if(method.equalsIgnoreCase("get")) {
-                handleRegisterGet(query, "/index.html", out);
-                return;
-            }
-            if(method.equalsIgnoreCase("post")) {
-                handleRegisterPost(body, "/index.html", out);
-                return;
-            }
+        if(method.equalsIgnoreCase("get") && path.equalsIgnoreCase("/user/create")) {
+            handleRegisterGet(query, "/index.html", out);
+            return;
+        }
+        if(method.equalsIgnoreCase("post") && url.equalsIgnoreCase("/user/create")) {
+            handleRegisterPost(body, "/index.html", out);
         }
     }
     private void handleRegisterGet(String queryParams, String path, DataOutputStream out) {
