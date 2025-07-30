@@ -40,17 +40,7 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
-    /*
-    private void handleIndexPage(InputStream in, DataOutputStream out) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(in));
-        String firstLine = br.readLine();
-        log.debug("{}", firstLine);
-        // String url = requestUrlParse(br);
-        String url = HttpRequestUtils.getUrl(firstLine);
-        printHttpRequest(br);
-        handleRequestUrl(url, out);
-    }
-     */
+
     private void printHttpRequest(BufferedReader br) throws IOException {
         String line;
         while((line = br.readLine()) != null && !line.isEmpty()) {
