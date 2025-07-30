@@ -1,5 +1,12 @@
 package webserver;
 
+import db.DataBase;
+import model.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import util.HttpRequestUtils;
+import util.IOUtils;
+
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -7,14 +14,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import db.DataBase;
-import model.User;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import util.HttpRequestUtils;
-import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -41,6 +40,7 @@ public class RequestHandler extends Thread {
             String body = "";
             if(method.equalsIgnoreCase("post")) {
                 body = parseBody(br, headers);
+                log.debug("body:{}", body);
             }
             handleRequestUrl(method, url, body, dos);
 
@@ -62,7 +62,7 @@ public class RequestHandler extends Thread {
         }
         return headers;
     }
-    private List<String> parseQuery(String url) {
+    private List<String> parsePath(String url) {
         String path = url;
         String query = "";
         int querySeparatorIdx = url.indexOf("?");
@@ -73,10 +73,9 @@ public class RequestHandler extends Thread {
         return Arrays.asList(path, query);
     }
     private void handleRequestUrl(String method, String url, String body, DataOutputStream out) throws IOException {
-        List<String> parseQueryList = method.equalsIgnoreCase("get") ? parseQuery(url) : parseQuery(body);
-        String path = parseQueryList.get(0);
-        String query = parseQueryList.get(1);
-
+        List<String> queryPaths = parsePath(url);
+        String path = queryPaths.get(0);
+        String query = queryPaths.get(1);
         if(url.equals("/")) {
             handleRootPage(url, out);
             return;
@@ -89,29 +88,27 @@ public class RequestHandler extends Thread {
             handleRegisterPage(url, out);
             return;
         }
-        if(path.equalsIgnoreCase("/user/create")) {
-            if(method.equalsIgnoreCase("get")) {
-                handleRegisterGet(query);
-                return;
-            }
-            if(method.equalsIgnoreCase("post")) {
-                handleRegisterPost(body);
-                return;
-            }
+        if(method.equalsIgnoreCase("get") && path.equalsIgnoreCase("/user/create")) {
+            handleRegisterGet(query, "/index.html", out);
+            return;
+        }
+        if(method.equalsIgnoreCase("post") && url.equalsIgnoreCase("/user/create")) {
+            handleRegisterPost(body, "/index.html", out);
         }
     }
-    private void handleRegisterGet(String queryParams) {
+    private void handleRegisterGet(String queryParams, String path, DataOutputStream out) {
         Map<String, String> params = HttpRequestUtils.parseQueryString(queryParams);
         User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
         log.debug("user:{}", user);
         DataBase.addUser(user);
-
+        response302Header(out, path, 0);
     }
-    private void handleRegisterPost(String body) {
+    private void handleRegisterPost(String body, String path, DataOutputStream out) {
         Map<String, String> params = HttpRequestUtils.parseQueryString(body);
         User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
         log.debug("user:{}", user);
         DataBase.addUser(user);
+        response302Header(out, path, 0);
     }
     private void handleRootPage(String url, DataOutputStream out) {
         byte[] body = "Hello World".getBytes();
@@ -140,7 +137,18 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
+    private void response302Header(DataOutputStream dos, String path, int lengthOfBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found\r\n");
+            dos.writeBytes("Location: " + path + "\r\n");
+            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
 
+    }
     private void responseBody(DataOutputStream dos, byte[] body) {
         try {
             dos.write(body, 0, body.length);
