@@ -13,6 +13,10 @@ public class HttpRequestUtils {
         if(line == null || line.isEmpty()) throw new IOException("invalid http request");
         return line.split(" ")[1];
     }
+    public static String getMethod(String line) throws IOException {
+        if(line == null || line.isEmpty()) throw new IOException("invalid http request");
+        return line.split(" ")[0];
+    }
     /**
      * @param queryString은
      *            URL에서 ? 이후에 전달되는 field1=value1&field2=value2 형식임
