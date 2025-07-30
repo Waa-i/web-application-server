@@ -26,15 +26,21 @@ public class RequestHandler extends Thread {
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
+            BufferedReader br = new BufferedReader(new InputStreamReader(in));
             DataOutputStream dos = new DataOutputStream(out);
+            String firstLine = br.readLine();
+            log.debug("{}", firstLine);
+            String url = HttpRequestUtils.getUrl(firstLine);
+            printHttpRequest(br);
+            handleRequestUrl(url, dos);
             //byte[] body = "Hello World".getBytes();
-            handleIndexPage(in, dos);
             //response200Header(dos, body.length);
             //responseBody(dos, body);
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
+    /*
     private void handleIndexPage(InputStream in, DataOutputStream out) throws IOException {
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
         String firstLine = br.readLine();
@@ -44,33 +50,34 @@ public class RequestHandler extends Thread {
         printHttpRequest(br);
         handleRequestUrl(url, out);
     }
+     */
     private void printHttpRequest(BufferedReader br) throws IOException {
         String line;
         while((line = br.readLine()) != null && !line.isEmpty()) {
             log.debug("{}", line);
         }
     }
-    /*
-    private String requestUrlParse(BufferedReader br) throws IOException {
-        String firstLine = br.readLine();
-        if(firstLine == null || firstLine.isEmpty()) throw new IOException("invalid http request");
-        log.debug("{}", firstLine);
-        return firstLine.split(" ")[1];
 
-    }
-    */
     private void handleRequestUrl(String url, DataOutputStream out) throws IOException {
-        byte[] body = "Hello World".getBytes();
-        if("/index.html".equalsIgnoreCase(url)) {
-            body = Files.readAllBytes(new File("./webapp" + url.toLowerCase()).toPath());
-            response200Header(out, body.length);
-            out.write(body);
-            out.flush();
+        if(url.equals("/")) {
+            handleRootPage(url, out);
             return;
         }
+        if(url.equalsIgnoreCase("/index.html")) {
+            handleIndexPage(url, out);
+            return;
+        }
+    }
+    private void handleRootPage(String url, DataOutputStream out) {
+        byte[] body = "Hello World".getBytes();
         response200Header(out, body.length);
         responseBody(out, body);
-
+    }
+    private void handleIndexPage(String url, DataOutputStream out) throws IOException {
+        byte[] body = Files.readAllBytes(new File("./webapp" + url.toLowerCase()).toPath());
+        response200Header(out, body.length);
+        out.write(body);
+        out.flush();
     }
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
         try {
