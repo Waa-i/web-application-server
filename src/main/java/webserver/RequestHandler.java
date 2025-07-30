@@ -40,11 +40,22 @@ public class RequestHandler extends Thread {
                 body = parseBody(br, headers);
                 log.debug("body:{}", body);
             }
-            handleRequestUrl(method, url, body, dos);
+            handleRequestUrl(method, url, body, headers, dos);
 
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+    private boolean parseCookieLogined(Map<String, String> headers) {
+        for (String headerKey : headers.keySet()) {
+            if(headerKey.equalsIgnoreCase("cookie")) {
+                Map<String, String> cookies = HttpRequestUtils.parseCookies(headers.get(headerKey));
+                if(cookies.containsKey("logined")) {
+                    return Boolean.parseBoolean(cookies.get("logined"));
+                }
+            }
+        }
+        return false;
     }
     private String parseBody(BufferedReader br, Map<String, String> headers) throws IOException {
         int contentLength = Integer.parseInt(headers.getOrDefault("Content-Length", "0"));
@@ -70,7 +81,7 @@ public class RequestHandler extends Thread {
         }
         return Arrays.asList(path, query);
     }
-    private void handleRequestUrl(String method, String url, String body, DataOutputStream out) throws IOException {
+    private void handleRequestUrl(String method, String url, String body, Map<String, String> headers, DataOutputStream out) throws IOException {
         List<String> queryPaths = parsePath(url);
         String path = queryPaths.get(0);
         String query = queryPaths.get(1);
@@ -104,6 +115,19 @@ public class RequestHandler extends Thread {
         if(url.equalsIgnoreCase("/user/login_failed.html")) {
             handleLoginFailed(out);
         }
+        if(url.equalsIgnoreCase("/user/list.html")) {
+            if(parseCookieLogined(headers)) {
+                handleUserList(out);
+                return;
+            }
+            handleLoginPage(out);
+        }
+    }
+    private void handleUserList(DataOutputStream out) throws IOException {
+        byte[] body = parseResponseBody("/user/list.html");
+        response200Header(out, body.length);
+        out.write(body);
+        out.flush();
     }
     private void handleLogin(String body, DataOutputStream out) throws IOException {
         Map<String, String> params = HttpRequestUtils.parseQueryString(body);
