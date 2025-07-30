@@ -9,11 +9,9 @@ import util.IOUtils;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.URL;
 import java.nio.file.Files;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -77,15 +75,15 @@ public class RequestHandler extends Thread {
         String path = queryPaths.get(0);
         String query = queryPaths.get(1);
         if(url.equals("/")) {
-            handleRootPage(url, out);
+            handleRootPage(out);
             return;
         }
         if(url.equalsIgnoreCase("/index.html")) {
-            handleIndexPage(url, out);
+            handleIndexPage(out);
             return;
         }
         if(url.equalsIgnoreCase("/user/form.html")) {
-            handleRegisterPage(url, out);
+            handleRegisterPage(out);
             return;
         }
         if(method.equalsIgnoreCase("get") && path.equalsIgnoreCase("/user/create")) {
@@ -94,7 +92,41 @@ public class RequestHandler extends Thread {
         }
         if(method.equalsIgnoreCase("post") && url.equalsIgnoreCase("/user/create")) {
             handleRegisterPost(body, "/index.html", out);
+            return;
         }
+        if(url.equalsIgnoreCase("/user/login.html")) {
+            handleLoginPage(out);
+            return;
+        }
+        if(method.equalsIgnoreCase("post") && url.equalsIgnoreCase("/user/login")) {
+            handleLogin(body, out);
+        }
+        if(url.equalsIgnoreCase("/user/login_failed.html")) {
+            handleLoginFailed(out);
+        }
+    }
+    private void handleLogin(String body, DataOutputStream out) throws IOException {
+        Map<String, String> params = HttpRequestUtils.parseQueryString(body);
+        User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+        for (User foundUser : DataBase.findAll()) {
+            if(user.getUserId().equals(foundUser.getUserId()) && user.getPassword().equals(foundUser.getPassword())) {
+                handleIndexPage("/index.html", out, true);
+                return;
+            }
+        }
+        response302Header(out,"/user/login_failed.html", 0, false);
+    }
+    private void handleLoginFailed(DataOutputStream out) throws IOException {
+        byte[] body = parseResponseBody("/user/login_failed.html");
+        response200Header(out, body.length);
+        out.write(body);
+        out.flush();
+    }
+    private void handleLoginPage(DataOutputStream out) throws IOException {
+        byte[] body = parseResponseBody("/user/login.html");
+        response200Header(out, body.length);
+        out.write(body);
+        out.flush();
     }
     private void handleRegisterGet(String queryParams, String path, DataOutputStream out) {
         Map<String, String> params = HttpRequestUtils.parseQueryString(queryParams);
@@ -110,23 +142,33 @@ public class RequestHandler extends Thread {
         DataBase.addUser(user);
         response302Header(out, path, 0);
     }
-    private void handleRootPage(String url, DataOutputStream out) {
+    private void handleRootPage(DataOutputStream out) {
         byte[] body = "Hello World".getBytes();
         response200Header(out, body.length);
         responseBody(out, body);
     }
-    private void handleIndexPage(String url, DataOutputStream out) throws IOException {
-        byte[] body = Files.readAllBytes(new File("./webapp" + url.toLowerCase()).toPath());
+    private byte[] parseResponseBody(String url) throws IOException {
+        return Files.readAllBytes(new File("./webapp" + url.toLowerCase()).toPath());
+    }
+    private void handleIndexPage(DataOutputStream out) throws IOException {
+        byte[] body = parseResponseBody("/index.html");
         response200Header(out, body.length);
         out.write(body);
         out.flush();
     }
-    private void handleRegisterPage(String url, DataOutputStream out) throws IOException {
-        byte[] body = Files.readAllBytes(new File("./webapp" + url.toLowerCase()).toPath());
+    private void handleIndexPage(String path, DataOutputStream out) throws IOException {
+        response302Header(out, path, 0);
+    }
+    private void handleIndexPage(String path, DataOutputStream out, boolean isLogin) throws IOException {
+        response302Header(out, path, 0, isLogin);
+    }
+    private void handleRegisterPage(DataOutputStream out) throws IOException {
+        byte[] body = parseResponseBody("/user/form.html");
         response200Header(out, body.length);
         out.write(body);
         out.flush();
     }
+
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
@@ -143,6 +185,19 @@ public class RequestHandler extends Thread {
             dos.writeBytes("Location: " + path + "\r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+
+    }
+    private void response302Header(DataOutputStream dos, String path, int lengthOfBodyContent, boolean isLogin) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found\r\n");
+            dos.writeBytes("Location: " + path + "\r\n");
+            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("Set-Cookie: logined=" + isLogin + "; Path=/\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
