@@ -3,6 +3,7 @@ package webserver;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -83,27 +84,28 @@ public class RequestHandler extends Thread {
         }
         if(path.equalsIgnoreCase("/user/create")) {
             if(method.equalsIgnoreCase("get")) {
-                handleRegisterGet(query);
+                handleRegisterGet(query, "/index.html", out);
                 return;
             }
             if(method.equalsIgnoreCase("post")) {
-                handleRegisterPost(body);
+                handleRegisterPost(body, "/index.html", out);
                 return;
             }
         }
     }
-    private void handleRegisterGet(String queryParams) {
+    private void handleRegisterGet(String queryParams, String path, DataOutputStream out) {
         Map<String, String> params = HttpRequestUtils.parseQueryString(queryParams);
         User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
         log.debug("user:{}", user);
         DataBase.addUser(user);
-
+        response302Header(out, path, 0);
     }
-    private void handleRegisterPost(String body) {
+    private void handleRegisterPost(String body, String path, DataOutputStream out) {
         Map<String, String> params = HttpRequestUtils.parseQueryString(body);
         User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
         log.debug("user:{}", user);
         DataBase.addUser(user);
+        response302Header(out, path, 0);
     }
     private void handleRootPage(String url, DataOutputStream out) {
         byte[] body = "Hello World".getBytes();
@@ -132,7 +134,18 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
+    private void response302Header(DataOutputStream dos, String path, int lengthOfBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found\r\n");
+            dos.writeBytes("Location: " + path + "\r\n");
+            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
 
+    }
     private void responseBody(DataOutputStream dos, byte[] body) {
         try {
             dos.write(body, 0, body.length);
