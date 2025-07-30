@@ -3,7 +3,9 @@ package webserver;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -60,8 +62,7 @@ public class RequestHandler extends Thread {
         }
         return headers;
     }
-
-    private void handleRequestUrl(String method, String url, String body, DataOutputStream out) throws IOException {
+    private List<String> parseQuery(String url) {
         String path = url;
         String query = "";
         int querySeparatorIdx = url.indexOf("?");
@@ -69,6 +70,13 @@ public class RequestHandler extends Thread {
             path = url.substring(0, querySeparatorIdx);
             query = url.substring(querySeparatorIdx + 1);
         }
+        return Arrays.asList(path, query);
+    }
+    private void handleRequestUrl(String method, String url, String body, DataOutputStream out) throws IOException {
+        List<String> parseQueryList = method.equalsIgnoreCase("get") ? parseQuery(url) : parseQuery(body);
+        String path = parseQueryList.get(0);
+        String query = parseQueryList.get(1);
+
         if(url.equals("/")) {
             handleRootPage(url, out);
             return;
