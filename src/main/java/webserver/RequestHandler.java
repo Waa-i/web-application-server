@@ -7,6 +7,7 @@ import java.nio.file.attribute.DosFileAttributes;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.HttpRequestUtils;
 
 import javax.sound.sampled.Line;
 
@@ -36,7 +37,10 @@ public class RequestHandler extends Thread {
     }
     private void handleIndexPage(InputStream in, DataOutputStream out) throws IOException {
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
-        String url = requestUrlParse(br);
+        String firstLine = br.readLine();
+        log.debug("{}", firstLine);
+        // String url = requestUrlParse(br);
+        String url = HttpRequestUtils.getUrl(firstLine);
         printHttpRequest(br);
         handleRequestUrl(url, out);
     }
@@ -46,6 +50,7 @@ public class RequestHandler extends Thread {
             log.debug("{}", line);
         }
     }
+    /*
     private String requestUrlParse(BufferedReader br) throws IOException {
         String firstLine = br.readLine();
         if(firstLine == null || firstLine.isEmpty()) throw new IOException("invalid http request");
@@ -53,6 +58,7 @@ public class RequestHandler extends Thread {
         return firstLine.split(" ")[1];
 
     }
+    */
     private void handleRequestUrl(String url, DataOutputStream out) throws IOException {
         byte[] body = "Hello World".getBytes();
         if("/index.html".equalsIgnoreCase(url)) {
